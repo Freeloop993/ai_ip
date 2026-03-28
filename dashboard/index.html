@@ -1,0 +1,139 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI IP Pipeline Dashboard</title>
+  <link rel="stylesheet" href="/dashboard/styles.css" />
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <main class="shell">
+    <header class="hero">
+      <h1>AI IP Pipeline</h1>
+      <p>P2 内容管线看板（实时状态）</p>
+      <div class="actions">
+        <button id="refreshBtn">手动刷新</button>
+        <button id="pullFeishuBtn">飞书回流</button>
+        <span id="lastUpdated">--</span>
+      </div>
+    </header>
+
+    <section class="cards" id="summaryCards"></section>
+
+    <section class="panel">
+      <h2>Agent 状态</h2>
+      <div id="agentGrid" class="agent-grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>发布账号管理（Bilibili）</h2>
+      <div class="actions">
+        <input id="loginProfileInput" placeholder="账号别名（默认 default）" />
+        <button id="startLoginBtn">开始扫码登录</button>
+        <span id="loginStatusText">未开始</span>
+      </div>
+      <div class="qr-wrap">
+        <img id="loginQrImage" alt="bilibili login qr" />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>profile</th>
+              <th>状态</th>
+              <th>更新时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="accountRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>内容管线</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>平台</th>
+              <th>作者</th>
+              <th>状态</th>
+              <th>来源</th>
+              <th>更新时间</th>
+            </tr>
+          </thead>
+          <tbody id="contentRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>数据趋势</h2>
+      <div id="trendStats" class="cards"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>内容ID</th>
+              <th>平台</th>
+              <th>播放</th>
+              <th>点赞</th>
+              <th>评论</th>
+              <th>采集时间</th>
+            </tr>
+          </thead>
+          <tbody id="metricRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>错误日志与 Run 检索</h2>
+      <div class="actions">
+        <input id="runIdInput" placeholder="输入 run_id 过滤" />
+        <button id="queryErrorsBtn">查询</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>run_id</th>
+              <th>agent</th>
+              <th>状态</th>
+              <th>error_code</th>
+              <th>更新时间</th>
+            </tr>
+          </thead>
+          <tbody id="errorRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>配置中心（最小）</h2>
+      <div class="config-grid">
+        <div>
+          <h3>ip-config.json</h3>
+          <textarea id="ipConfigEditor"></textarea>
+          <button id="saveIpConfigBtn">保存 ip-config</button>
+        </div>
+        <div>
+          <h3>SOUL.md</h3>
+          <textarea id="soulEditor"></textarea>
+          <button id="saveSoulBtn">保存 SOUL</button>
+        </div>
+        <div>
+          <h3>runtime-config.json</h3>
+          <textarea id="runtimeConfigEditor"></textarea>
+          <button id="saveRuntimeConfigBtn">保存 runtime-config</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/dashboard/app.js"></script>
+</body>
+</html>

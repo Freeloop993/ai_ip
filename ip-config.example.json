@@ -1,0 +1,37 @@
+﻿{
+  "ip": {
+    "name": "示例IP",
+    "assetPath": "./assets/ip-base-image.png",
+    "style": "3D写实",
+    "tone": "科技感、温暖",
+    "contentDirection": ["科技", "生活方式"],
+    "voice": "tts_voice_id"
+  },
+  "decision": {
+    "fitScoreThreshold": 7
+  },
+  "targets": [
+    {
+      "platform": "douyin",
+      "authorId": "123456",
+      "name": "对标博主A"
+    }
+  ],
+  "publish": {
+    "douyin": {
+      "accountToken": "${DOUYIN_ACCOUNT_TOKEN}"
+    },
+    "xiaohongshu": {
+      "accountToken": "${XHS_ACCOUNT_TOKEN}"
+    }
+  },
+  "videoApi": {
+    "provider": "kling",
+    "apiKeyEnv": "KLING_API_KEY"
+  },
+  "imageApi": {
+    "provider": "keling",
+    "baseUrl": "https://your-image-api.example.com",
+    "apiKeyEnv": "IMAGE_API_KEY"
+  }
+}

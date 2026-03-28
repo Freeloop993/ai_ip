@@ -1,0 +1,14 @@
+﻿{
+  "name": "coze-fallback-reconcile",
+  "schedule": {
+    "kind": "cron",
+    "expr": "*/10 * * * *",
+    "tz": "Asia/Shanghai"
+  },
+  "payload": {
+    "kind": "http",
+    "method": "POST",
+    "url": "http://127.0.0.1:8787/api/recovery/reconcile",
+    "body": {}
+  }
+}

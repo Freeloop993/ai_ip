@@ -1,0 +1,49 @@
+﻿{
+  "agents": {
+    "list": [
+      {
+        "id": "ip-host",
+        "name": "IP 主 Agent",
+        "workspace": "./agents/ip-host",
+        "model": "gongfeng/auto",
+        "subagents": {
+          "allowAgents": ["content-analyst", "producer-agent", "analyst-agent"]
+        }
+      },
+      {
+        "id": "content-analyst",
+        "name": "内容分析师",
+        "workspace": "./agents/content-analyst",
+        "model": "gongfeng/auto"
+      },
+      {
+        "id": "producer-agent",
+        "name": "内容生产者",
+        "workspace": "./agents/producer-agent",
+        "model": "gongfeng/auto"
+      },
+      {
+        "id": "analyst-agent",
+        "name": "数据洞察员",
+        "workspace": "./agents/analyst-agent",
+        "model": "gongfeng/auto"
+      }
+    ],
+    "defaults": {
+      "subagents": {
+        "maxSpawnDepth": 2,
+        "maxChildrenPerAgent": 5,
+        "maxConcurrent": 8,
+        "runTimeoutSeconds": 900
+      }
+    }
+  },
+  "tools": {
+    "agentToAgent": {
+      "enabled": true,
+      "allow": ["ip-host", "content-analyst", "producer-agent", "analyst-agent"]
+    }
+  },
+  "bindings": []
+}
+
