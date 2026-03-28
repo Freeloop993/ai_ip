@@ -40,6 +40,9 @@ class Settings:
     coze_workflow_graph_parameter_url: str = ""
     coze_workflow_timeout_seconds: int = 60
     coze_workflow_default_inputs_json: str = "{}"
+    collector_timeout_seconds: int = 30
+    collector_default_max_videos: int = 10
+    collector_default_source: str = "native-collector"
 
     openclaw_enabled: bool = False
     openclaw_base_url: str = ""
@@ -106,6 +109,9 @@ def load_settings() -> Settings:
         coze_workflow_graph_parameter_url=os.getenv("COZE_WORKFLOW_GRAPH_PARAMETER_URL", ""),
         coze_workflow_timeout_seconds=int(os.getenv("COZE_WORKFLOW_TIMEOUT_SECONDS", "60")),
         coze_workflow_default_inputs_json=os.getenv("COZE_WORKFLOW_DEFAULT_INPUTS_JSON", "{}"),
+        collector_timeout_seconds=int(os.getenv("COLLECTOR_TIMEOUT_SECONDS", "30")),
+        collector_default_max_videos=int(os.getenv("COLLECTOR_DEFAULT_MAX_VIDEOS", "10")),
+        collector_default_source=os.getenv("COLLECTOR_DEFAULT_SOURCE", "native-collector"),
         openclaw_enabled=_as_bool(os.getenv("OPENCLAW_ENABLED", "false"), False),
         openclaw_base_url=os.getenv("OPENCLAW_BASE_URL", ""),
         openclaw_api_key=os.getenv("OPENCLAW_API_KEY", ""),

@@ -34,6 +34,24 @@ Fetch workflow input/output schema from configured Coze workflow endpoint.
 ```
 Server calls Coze workflow run endpoint, maps `videos[]` to internal events, then ingests via same dedupe/state machine.
 
+### POST `/api/collect/run`
+Built-in collector mode (skip Coze), directly fetches videos and ingests through same dedupe/state machine.
+```json
+{
+  "targets": [
+    {
+      "platform": "bilibili",
+      "profile_url": "https://space.bilibili.com/404534035",
+      "cookie_env": "BILIBILI_COOKIE",
+      "max_videos": 5
+    }
+  ],
+  "dry_run": false
+}
+```
+If `targets` is omitted, service will fallback to `ip-config.json` target list.
+Current built-in collector supports: `bilibili`, `xiaohongshu`, `douyin`, `youtube`.
+
 ## 2) Subagent announce - analysis
 ### POST `/api/analysis-result`
 ```json
@@ -232,6 +250,9 @@ Returns provider readiness and required env keys, e.g. `kling` / `keling`.
 - `COZE_WORKFLOW_NOT_CONFIGURED`
 - `COZE_WORKFLOW_REQUEST_FAILED`
 - `COZE_WORKFLOW_INVALID_OUTPUT`
+- `COLLECTOR_PLATFORM_UNSUPPORTED`
+- `COLLECTOR_INVALID_PROFILE_URL`
+- `COLLECTOR_REQUEST_FAILED`
 - `CALLBACK_SIGNATURE_FAILED`
 - `OPENCLAW_REQUEST_FAILED`
 - `KLING_REQUEST_FAILED`

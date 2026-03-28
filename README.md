@@ -2,12 +2,15 @@
 
 ## Quick Start
 1. Copy `.env.example` to `.env`.
-2. Choose publish mode:
+2. Choose ingest mode:
+   - `INGEST_PROVIDER=coze` (existing)
+   - or `INGEST_PROVIDER=native` (skip Coze, use built-in collector)
+3. Choose publish mode:
    - `PUBLISH_PROVIDER=webhook` + `PUBLISH_WEBHOOK_URL`
    - or `PUBLISH_PROVIDER=bilibili_rpa` (Playwright browser automation)
-3. Fill optional `OPENCLAW_*`, `KLING_API_KEY`.
-4. If enabling Xiaohongshu image-text generation, fill `IMAGE_API_BASE_URL` + `IMAGE_API_KEY`.
-3. Run server:
+4. Fill optional `OPENCLAW_*`, `KLING_API_KEY`.
+5. If enabling Xiaohongshu image-text generation, fill `IMAGE_API_BASE_URL` + `IMAGE_API_KEY`.
+6. Run server:
 
 ```powershell
 $env:PYTHONPATH = "E:\codex code\ai IP\src"
@@ -18,6 +21,7 @@ py -3 -m mvp_pipeline.server
 - `POST /api/coze-trigger` (ingest + event dedupe + optional openclaw dispatch)
 - `GET /api/coze/graph-parameter` (fetch Coze workflow input/output schema)
 - `POST /api/coze/pull-run` (server主动调用 Coze workflow 并回灌管线)
+- `POST /api/collect/run` (内置采集器直连平台抓取并回灌管线，跳过 Coze)
 - `POST /api/analysis-result` (content-analyst announce)
 - `POST /api/production-result` (producer-agent announce)
 - `POST /api/producer/run` (run real kling production from backend)
@@ -63,6 +67,41 @@ py -3 -m mvp_pipeline.server
 - APIs:
   - `GET /api/coze/graph-parameter`
   - `POST /api/coze/pull-run` with `{ "inputs": {...}, "dry_run": false }`
+
+## Native Collector Mode (Skip Coze)
+- Configure:
+  - `INGEST_PROVIDER=native`
+  - optional `COLLECTOR_TIMEOUT_SECONDS`, `COLLECTOR_DEFAULT_MAX_VIDEOS`
+- API:
+  - `POST /api/collect/run`
+- payload example:
+```json
+{
+  "targets": [
+    {
+      "platform": "bilibili",
+      "profile_url": "https://space.bilibili.com/404534035",
+      "cookie_env": "BILIBILI_COOKIE",
+      "max_videos": 5
+    },
+    {
+      "platform": "douyin",
+      "profile_url": "https://www.douyin.com/user/MS4wLjABAAAAxxxx",
+      "cookie_env": "DOUYIN_COOKIE",
+      "max_videos": 5
+    },
+    {
+      "platform": "youtube",
+      "profile_url": "https://www.youtube.com/@openai",
+      "max_videos": 5
+    }
+  ],
+  "dry_run": false
+}
+```
+- Notes:
+  - If `targets` is omitted, service will try `ip-config.json` -> `targets[*].profileUrl/profile_url`.
+  - Current built-in collector supports: `bilibili`, `xiaohongshu`, `douyin`, `youtube`.
 
 ## Runtime Guarantees (P1)
 - Dedupe key: `event_id` and `platform + video_id`.

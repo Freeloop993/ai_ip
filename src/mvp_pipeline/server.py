@@ -143,6 +143,11 @@ class AppHandler(BaseHTTPRequestHandler):
             self._send(200 if data.get("ok") else 400, data)
             return
 
+        if path == "/api/collect/run":
+            data = self.service.collect_run(payload)
+            self._send(200 if data.get("ok") else 400, data)
+            return
+
         if path == "/api/analysis-result":
             data = self.service.update_analysis(payload)
             self._send(200 if data.get("ok") else 400, data)

@@ -1,9 +1,10 @@
 ﻿import json
+import hashlib
 import os
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from .coze_client import CozeWorkflowClient
 from .config import Settings
@@ -19,6 +20,7 @@ from .feishu import (
 )
 from .kling_client import KlingClient
 from .image_client import ImageGeneratorClient
+from .native_collector import CollectedVideo, NativeCollector
 from .openclaw_client import OpenClawClient
 from .publish_adapter import create_publisher
 from .schemas import (
@@ -58,6 +60,7 @@ class PipelineService:
             token=settings.coze_workflow_token,
             timeout_seconds=settings.coze_workflow_timeout_seconds,
         )
+        self.collector = NativeCollector(timeout_seconds=settings.collector_timeout_seconds)
         self.kling = KlingClient(
             api_key=settings.kling_api_key,
             base_url=settings.kling_api_base_url,
@@ -150,6 +153,7 @@ class PipelineService:
                 "callback_verify_mode": self.settings.callback_verify_mode,
                 "coze_verify_mode": self.settings.coze_verify_mode,
                 "coze_pull_enabled": self.coze_workflow.enabled,
+                "collector_supported_platforms": self.collector.supported_platforms,
                 "openclaw_enabled": self.openclaw.enabled,
                 "kling_enabled": self.kling.enabled,
                 "image_api_enabled": self.image_generator.enabled,
@@ -439,6 +443,208 @@ class PipelineService:
             )
         except Exception as exc:
             return self._err(exc, "COZE_WORKFLOW_REQUEST_FAILED")
+
+    def _build_native_event_id(self, platform: str, video_id: str, video_url: str) -> str:
+        key = f"{platform}|{video_id or video_url}".encode("utf-8")
+        digest = hashlib.sha1(key).hexdigest()[:20]
+        return f"native:{platform}:{digest}"
+
+    def _native_video_to_event(
+        self,
+        *,
+        video: CollectedVideo,
+        source: str,
+        author_override: str = "",
+    ) -> Dict[str, Any]:
+        author = str(author_override or video.author or "unknown").strip() or "unknown"
+        return {
+            "event_id": self._build_native_event_id(video.platform, video.video_id, video.video_url),
+            "source": source,
+            "video_url": video.video_url,
+            "video_id": video.video_id,
+            "author": author,
+            "platform": video.platform,
+            "stats": {
+                "plays": int(video.stats.get("plays", 0)),
+                "likes": int(video.stats.get("likes", 0)),
+                "comments": int(video.stats.get("comments", 0)),
+                "shares": int(video.stats.get("shares", 0)),
+            },
+            "collected_at": video.collected_at or datetime.now(timezone.utc).isoformat(),
+        }
+
+    def _target_cookie(self, target: Dict[str, Any]) -> str:
+        cookie = str(
+            target.get("platform_cookie")
+            or target.get("cookie")
+            or target.get("platformCookie")
+            or ""
+        ).strip()
+        if cookie:
+            return cookie
+        cookie_env = str(target.get("cookie_env") or target.get("cookieEnv") or "").strip()
+        if cookie_env:
+            return str(os.getenv(cookie_env, "")).strip()
+        return ""
+
+    def _load_native_targets(self, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+        targets = payload.get("targets")
+        if not isinstance(targets, list):
+            targets = []
+
+        if not targets and bool(payload.get("use_ip_config", True)):
+            try:
+                cfg = self.get_ip_config()
+                if cfg.get("ok"):
+                    loaded = (cfg.get("config") or {}).get("targets")
+                    if isinstance(loaded, list):
+                        targets = loaded
+            except Exception:
+                targets = []
+
+        normalized: List[Dict[str, Any]] = []
+        default_platform = str(payload.get("platform") or "").strip().lower()
+        default_cookie = str(payload.get("platform_cookie") or payload.get("cookie") or "").strip()
+        default_max = int(payload.get("max_videos") or self.settings.collector_default_max_videos or 10)
+
+        for item in targets:
+            if not isinstance(item, dict):
+                continue
+            profile_url = str(item.get("profile_url") or item.get("profileUrl") or item.get("url") or "").strip()
+            if not profile_url:
+                continue
+            platform = str(item.get("platform") or default_platform).strip().lower()
+            max_videos_raw = item.get("max_videos") or item.get("maxVideos") or default_max
+            try:
+                max_videos = int(max_videos_raw)
+            except Exception:
+                max_videos = default_max
+            cookie = default_cookie or self._target_cookie(item)
+            normalized.append(
+                {
+                    "profile_url": profile_url,
+                    "platform": platform,
+                    "platform_cookie": cookie,
+                    "max_videos": max(1, min(max_videos, 30)),
+                    "author": str(item.get("name") or item.get("author") or "").strip(),
+                }
+            )
+
+        if normalized:
+            return normalized
+
+        profile_url = str(payload.get("profile_url") or payload.get("profileUrl") or "").strip()
+        if profile_url:
+            cookie = default_cookie
+            cookie_env = str(payload.get("cookie_env") or payload.get("cookieEnv") or "").strip()
+            if not cookie and cookie_env:
+                cookie = str(os.getenv(cookie_env, "")).strip()
+            return [
+                {
+                    "profile_url": profile_url,
+                    "platform": default_platform,
+                    "platform_cookie": cookie,
+                    "max_videos": max(1, min(default_max, 30)),
+                    "author": str(payload.get("author") or "").strip(),
+                }
+            ]
+        return []
+
+    def collect_run(self, payload: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        payload = payload or {}
+        dry_run = bool(payload.get("dry_run", False))
+        source = str(payload.get("source") or self.settings.collector_default_source or "native-collector").strip()
+        if not source:
+            source = "native-collector"
+
+        targets = self._load_native_targets(payload)
+        if not targets:
+            return self._err(
+                PipelineError(
+                    "INVALID_PAYLOAD",
+                    "no collection targets found; provide targets/profile_url or configure targets in ip-config",
+                )
+            )
+
+        accepted = 0
+        deduped = 0
+        failed = 0
+        events: List[Dict[str, Any]] = []
+        details: List[Dict[str, Any]] = []
+        target_errors: List[Dict[str, Any]] = []
+
+        for target in targets:
+            profile_url = str(target.get("profile_url") or "").strip()
+            platform = str(target.get("platform") or "").strip().lower()
+            max_videos = int(target.get("max_videos") or self.settings.collector_default_max_videos or 10)
+            cookie = str(target.get("platform_cookie") or "").strip()
+            try:
+                videos = self.collector.collect(
+                    profile_url=profile_url,
+                    platform=platform,
+                    cookie=cookie,
+                    max_videos=max_videos,
+                )
+            except Exception as exc:
+                target_errors.append(
+                    {
+                        "profile_url": profile_url,
+                        "platform": platform or "auto",
+                        "error": str(exc),
+                    }
+                )
+                continue
+
+            for video in videos:
+                event = self._native_video_to_event(
+                    video=video,
+                    source=source,
+                    author_override=str(target.get("author") or ""),
+                )
+                events.append(event)
+
+        if dry_run:
+            return self._ok(
+                dry_run=True,
+                source=source,
+                target_count=len(targets),
+                event_count=len(events),
+                target_errors=target_errors,
+                events=events,
+            )
+
+        for event in events:
+            out = self.ingest_coze(event)
+            if out.get("ok") and not out.get("dedup"):
+                accepted += 1
+            elif out.get("ok") and out.get("dedup"):
+                deduped += 1
+            else:
+                failed += 1
+            details.append(
+                {
+                    "event_id": event.get("event_id"),
+                    "video_id": event.get("video_id"),
+                    "platform": event.get("platform"),
+                    "ok": bool(out.get("ok")),
+                    "dedup": bool(out.get("dedup", False)),
+                    "error_code": out.get("error_code"),
+                }
+            )
+
+        failed += len(target_errors)
+
+        return self._ok(
+            dry_run=False,
+            source=source,
+            target_count=len(targets),
+            event_count=len(events),
+            accepted=accepted,
+            deduped=deduped,
+            failed=failed,
+            target_errors=target_errors,
+            details=details,
+        )
 
     def _coze_now_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
@@ -906,6 +1112,12 @@ class PipelineService:
                 "configured": bool(self.settings.image_api_base_url and self.settings.image_api_key),
                 "required_env": ["IMAGE_API_KEY", "IMAGE_API_BASE_URL"],
                 "base_url": self.settings.image_api_base_url,
+            },
+            {
+                "provider": "native_collector",
+                "configured": True,
+                "required_env": [],
+                "supported_platforms": self.collector.supported_platforms,
             },
         ]
         return self._ok(items=items)

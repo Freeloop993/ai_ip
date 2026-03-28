@@ -12,9 +12,12 @@
   },
   "targets": [
     {
-      "platform": "douyin",
-      "authorId": "123456",
-      "name": "对标博主A"
+      "platform": "bilibili",
+      "authorId": "404534035",
+      "name": "对标博主A",
+      "profileUrl": "https://space.bilibili.com/404534035",
+      "cookieEnv": "BILIBILI_COOKIE",
+      "maxVideos": 5
     }
   ],
   "publish": {
